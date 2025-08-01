@@ -1,14 +1,14 @@
 {
   "name": "backend",
   "version": "1.0.0",
+  "author": "",
+  "license": "ISC",
   "description": "",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "server.js"
+    "start": "nodemon server.js"
   },
-  "author": "",
-  "license": "ISC",
   "dependencies": {
     "body-parser": "^2.2.0",
     "cookie-parser": "^1.4.7",
