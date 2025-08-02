@@ -15,7 +15,7 @@ const {
 const upload = multer({
   storage: multer.diskStorage({
     destination: (req, file, cb) => {
-      cb(null, "data");
+      cb(null, "pdfUpload");
     },
     filename: (req, file, cb) => {
       const splittedFileName = file.originalname.split(".");
@@ -38,7 +38,7 @@ module.exports = (esClient, model) => {
   const router = express.Router();
 
   // Upload and process PDF
-  router.post('/upload', upload.single('pdf'), async (req, res) => {
+  router.post('/upload-pdf', upload.single('pdf'), async (req, res) => {
     try {
       if (!req.file) {
         return res.status(400).json({ error: 'No PDF file uploaded' });
