@@ -58,6 +58,7 @@ module.exports = (esClient, model) => {
       
       // Parse CSV file
       const portfolioData = await parsePortfolioCSV(req.file.path);
+      console.log(1)
       console.log('Portfolio parsed, records:', portfolioData.length);
       
       // Validate data
@@ -70,15 +71,22 @@ module.exports = (esClient, model) => {
           details: validationErrors 
         });
       }
+      console.log(2)
+
       
       // Calculate portfolio metrics
       const portfolioMetrics = calculatePortfolioMetrics(portfolioData);
+      console.log(3)
+
       
       // Analyze risk
       const riskAnalysis = analyzePortfolioRisk(portfolioMetrics.portfolio);
+      console.log(4)
+
       
       // Get market trends
       const marketTrends = await getMarketTrends();
+      console.log(5)
       
       // Generate AI investment advice
       const investmentAdvice = await generateInvestmentAdvice(
@@ -86,10 +94,13 @@ module.exports = (esClient, model) => {
         marketTrends, 
         model
       );
+      console.log(6)
+
       
       // Store in Elasticsearch (using filename as userId for now)
       const userId = req.user?.id || 'anonymous';
       await indexPortfolio(portfolioMetrics, req.file.filename, userId, esClient);
+      console.log(7)
       
       // Clean up uploaded file
       fs.unlinkSync(req.file.path);
