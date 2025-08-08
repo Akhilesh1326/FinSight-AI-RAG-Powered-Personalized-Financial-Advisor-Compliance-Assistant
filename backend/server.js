@@ -20,6 +20,7 @@ const { initializeElasticsearch } = require('./controllers/documentController');
 
 // Import routes
 const ragRoutes = require('./routes/ragRoutes');
+const portfolioRoutes = require("./routes/portfolioRoutes");
 
 // Initialize services
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -67,6 +68,7 @@ app.get("/api/greet", (req, res) => {
 
 // Use RAG routes
 app.use('/api', ragRoutes(esClient, model));
+app.use('/api', portfolioRoutes(esClient, model));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
