@@ -1,4 +1,3 @@
-
 const fs = require('fs');
 const pdf = require('pdf-parse');
 
@@ -149,37 +148,39 @@ Answer:`;
 
 async function initializeElasticsearch(esClient) {
   try {
-    const indexExists = await esClient.indices.exists({ index: 'documents' });
-    
-    if (!indexExists.body) {
-      await esClient.indices.create({
-        index: 'documents',
-        body: {
-          mappings: {
-            properties: {
-              content: { type: 'text' },
-              embedding: { 
-                type: 'dense_vector', 
-                dims: 384 // Dimension for all-MiniLM-L6-v2 model
-              },
-              filename: { 
-                type: 'text',
-                fields: {
-                  keyword: { type: 'keyword' }
-                }
-              },
-              chunk_id: { type: 'integer' },
-              timestamp: { type: 'date' }
-            }
+    // First, try to create the index directly - this is often more reliable
+    await esClient.indices.create({
+      index: 'documents',
+      body: {
+        mappings: {
+          properties: {
+            content: { type: 'text' },
+            embedding: { 
+              type: 'dense_vector', 
+              dims: 384 // Dimension for all-MiniLM-L6-v2 model
+            },
+            filename: { 
+              type: 'text',
+              fields: {
+                keyword: { type: 'keyword' }
+              }
+            },
+            chunk_id: { type: 'integer' },
+            timestamp: { type: 'date' }
           }
         }
-      });
-      console.log('Created Elasticsearch index: documents');
-    } else {
-      console.log('Elasticsearch index already exists');
-    }
+      }
+    });
+    console.log('Created Elasticsearch index: documents');
   } catch (error) {
-    console.error('Error initializing Elasticsearch:', error);
+    // Handle the specific case where index already exists
+    if (error.meta && error.meta.body && error.meta.body.error && 
+        error.meta.body.error.type === 'resource_already_exists_exception') {
+      console.log('Elasticsearch index already exists - continuing...');
+    } else {
+      console.error('Error initializing Elasticsearch:', error);
+      throw error; // Re-throw if it's not the "already exists" error
+    }
   }
 }
 
