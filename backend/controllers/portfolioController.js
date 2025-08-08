@@ -1,6 +1,9 @@
 const fs = require('fs');
 const csv = require('csv-parser');
 const { createObjectCsvWriter } = require('csv-writer');
+const { type } = require('os');
+const { isFloat64Array } = require('util/types');
+const { parse } = require('path');
 
 // Function to parse portfolio CSV file
 async function parsePortfolioCSV(filePath) {
@@ -9,7 +12,7 @@ async function parsePortfolioCSV(filePath) {
     fs.createReadStream(filePath)
       .pipe(csv())
       .on('data', (data) => {
-        // Normalize column names (remove spaces, convert to lowercase)
+
         const normalizedData = {};
         Object.keys(data).forEach(key => {
           const normalizedKey = key.toLowerCase().trim().replace(/\s+/g, '_');
@@ -30,24 +33,24 @@ async function parsePortfolioCSV(filePath) {
 function validatePortfolioData(portfolioData) {
   const requiredFields = ['symbol', 'quantity', 'purchase_price'];
   const errors = [];
-  
+
   portfolioData.forEach((row, index) => {
     requiredFields.forEach(field => {
       if (!row[field] || row[field] === '') {
         errors.push(`Row ${index + 1}: Missing ${field}`);
       }
     });
-    
+
     // Validate numeric fields
     if (row.quantity && isNaN(parseFloat(row.quantity))) {
       errors.push(`Row ${index + 1}: Quantity must be a number`);
     }
-    
+
     if (row.purchase_price && isNaN(parseFloat(row.purchase_price))) {
       errors.push(`Row ${index + 1}: Purchase price must be a number`);
     }
   });
-  
+
   return errors;
 }
 
@@ -57,29 +60,31 @@ function calculatePortfolioMetrics(portfolioData, marketData = {}) {
   let totalInvestment = 0;
   const assetAllocation = {};
   const sectorAllocation = {};
-  
+
   const processedPortfolio = portfolioData.map(holding => {
     const symbol = holding.symbol.toUpperCase();
     const quantity = parseFloat(holding.quantity);
-    const purchasePrice = parseFloat(holding.purchase_price);
+    // const purchasePrice = Number(parseFloat(holding.purchase_price).toFixed(6));
+    const purchasePrice = parseFloat(holding.purchase_price)
+    console.log(checkNumberType(purchasePrice))
     const currentPrice = marketData[symbol]?.price || purchasePrice; // Use market price if available
     const sector = marketData[symbol]?.sector || 'Unknown';
     const assetType = holding.asset_type || 'Stock';
-    
+
     const investment = quantity * purchasePrice;
     const currentValue = quantity * currentPrice;
     const gainLoss = currentValue - investment;
     const gainLossPercent = (gainLoss / investment) * 100;
-    
+
     totalInvestment += investment;
     totalValue += currentValue;
-    
+
     // Asset allocation
     assetAllocation[assetType] = (assetAllocation[assetType] || 0) + currentValue;
-    
+
     // Sector allocation
     sectorAllocation[sector] = (sectorAllocation[sector] || 0) + currentValue;
-    
+
     return {
       ...holding,
       symbol,
@@ -94,19 +99,19 @@ function calculatePortfolioMetrics(portfolioData, marketData = {}) {
       assetType
     };
   });
-  
+
   const totalGainLoss = totalValue - totalInvestment;
   const totalGainLossPercent = (totalGainLoss / totalInvestment) * 100;
-  
+
   // Convert allocations to percentages
   Object.keys(assetAllocation).forEach(key => {
     assetAllocation[key] = parseFloat(((assetAllocation[key] / totalValue) * 100).toFixed(2));
   });
-  
+
   Object.keys(sectorAllocation).forEach(key => {
     sectorAllocation[key] = parseFloat(((sectorAllocation[key] / totalValue) * 100).toFixed(2));
   });
-  
+
   return {
     portfolio: processedPortfolio,
     summary: {
@@ -151,7 +156,7 @@ Keep the advice practical and easy to understand.`;
     const result = await model.generateContent(prompt);
     const response = await result.response;
     return response.text();
-    
+
   } catch (error) {
     console.error('Error generating investment advice:', error);
     throw error;
@@ -165,12 +170,12 @@ function analyzePortfolioRisk(portfolioData) {
     volatility: 0,
     diversification: 0
   };
-  
+
   // Concentration risk - check if any single holding is > 20% of portfolio
   const totalValue = portfolioData.reduce((sum, holding) => sum + holding.currentValue, 0);
   const maxHolding = Math.max(...portfolioData.map(holding => holding.currentValue));
   const concentrationRatio = (maxHolding / totalValue) * 100;
-  
+
   if (concentrationRatio > 20) {
     riskFactors.concentration = 'High - Single holding exceeds 20% of portfolio';
   } else if (concentrationRatio > 10) {
@@ -178,11 +183,11 @@ function analyzePortfolioRisk(portfolioData) {
   } else {
     riskFactors.concentration = 'Low - Well distributed holdings';
   }
-  
+
   // Diversification score based on number of holdings and sectors
   const uniqueSectors = [...new Set(portfolioData.map(holding => holding.sector))].length;
   const totalHoldings = portfolioData.length;
-  
+
   if (totalHoldings < 5 || uniqueSectors < 3) {
     riskFactors.diversification = 'Low - Consider adding more holdings across different sectors';
   } else if (totalHoldings < 10 || uniqueSectors < 5) {
@@ -190,7 +195,7 @@ function analyzePortfolioRisk(portfolioData) {
   } else {
     riskFactors.diversification = 'High - Well diversified portfolio';
   }
-  
+
   return riskFactors;
 }
 
@@ -206,6 +211,19 @@ async function getMarketTrends() {
 - Energy sector experiencing volatility due to geopolitical factors`;
 }
 
+function checkNumberType(num) {
+  if (typeof num === 'bigint') {
+    return 'BigInt (long)';
+  } else if (typeof num === 'number') {
+    if (Number.isInteger(num)) {
+      return 'Integer';
+    } else if (!Number.isNaN(num)) {
+      return 'Float';
+    }
+  }
+  return 'Not a number';
+}
+
 // Function to store portfolio data in Elasticsearch
 async function indexPortfolio(portfolioData, filename, userId, esClient) {
   try {
@@ -217,16 +235,22 @@ async function indexPortfolio(portfolioData, filename, userId, esClient) {
       uploadDate: new Date(),
       type: 'portfolio'
     };
+    const num = portfolioData.portfolio[0].purchasePrice;
+
+    // portfolioData.portfolio.forEach((item, idx) => {
+    //   console.log(`[DEBUG] purchasePrice[${idx}] =`, checkNumberType(item.purchasePrice));
+    // });
     
+
     await esClient.index({
       index: 'portfolios',
       id: `${userId}_${filename}_${Date.now()}`,
       body: portfolioDoc
     });
-    
+
     await esClient.indices.refresh({ index: 'portfolios' });
     console.log(`Indexed portfolio for user ${userId}`);
-    
+
   } catch (error) {
     console.error('Error indexing portfolio:', error);
     throw error;
@@ -237,7 +261,7 @@ async function indexPortfolio(portfolioData, filename, userId, esClient) {
 async function initializePortfolioIndex(esClient) {
   try {
     const indexExists = await esClient.indices.exists({ index: 'portfolios' });
-    
+
     if (!indexExists.body) {
       await esClient.indices.create({
         index: 'portfolios',
